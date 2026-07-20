@@ -6,7 +6,7 @@ export const maxDuration = 60;
 
 const SIZE_KEYS = SIZES.map((s) => s.key);
 const CAT_KEYS = CATEGORIES.map((c) => c.key);
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
