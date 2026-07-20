@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
+import { generateContent } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
-
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -40,29 +39,16 @@ Se directo, usa vinetas. No inventes datos que no esten aqui.
 DATOS:
 ${JSON.stringify(summary, null, 2)}`;
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const result = await generateContent(apiKey, {
+    contents: [{ role: "user", parts: [{ text: prompt }] }],
+  });
 
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-      }),
-    });
-    const json = await res.json();
-    if (!res.ok) {
-      const msg = json?.error?.message || "Error de Gemini";
-      return NextResponse.json({ error: msg }, { status: 500 });
-    }
-    const text: string =
-      json?.candidates?.[0]?.content?.parts?.[0]?.text || "Sin respuesta.";
-    return NextResponse.json({ analysis: text });
-  } catch (e: any) {
-    console.error("analyze error", e);
-    return NextResponse.json(
-      { error: e?.message || "Error al analizar" },
-      { status: 500 }
-    );
+  if (!result.ok) {
+    const msg = result.overloaded
+      ? "La IA esta saturada en este momento. Espera unos segundos e intenta de nuevo."
+      : result.error || "Error al analizar";
+    return NextResponse.json({ error: msg }, { status: 503 });
   }
+
+  return NextResponse.json({ analysis: result.text || "Sin respuesta." });
 }

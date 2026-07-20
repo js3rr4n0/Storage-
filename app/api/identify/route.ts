@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { BRANDS, SIZES, CATEGORIES } from "@/lib/constants";
+import { generateContent } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const SIZE_KEYS = SIZES.map((s) => s.key);
 const CAT_KEYS = CATEGORIES.map((c) => c.key);
-const MODEL = process.env.GEMINI_MODEL || "gemini-flash-latest";
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -64,44 +64,32 @@ Analiza la foto de la figura y responde en espanol.
     ],
   };
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`;
+  const result = await generateContent(apiKey, {
+    contents: [
+      {
+        role: "user",
+        parts: [
+          { inlineData: { mimeType: mediaType || "image/jpeg", data: image } },
+          { text: prompt },
+        ],
+      },
+    ],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema,
+    },
+  });
+
+  if (!result.ok) {
+    const msg = result.overloaded
+      ? "La IA esta saturada en este momento. Espera unos segundos y toca la foto de nuevo."
+      : result.error || "Error al identificar la figura";
+    return NextResponse.json({ error: msg }, { status: 503 });
+  }
 
   try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              {
-                inlineData: {
-                  mimeType: mediaType || "image/jpeg",
-                  data: image,
-                },
-              },
-              { text: prompt },
-            ],
-          },
-        ],
-        generationConfig: {
-          responseMimeType: "application/json",
-          responseSchema,
-        },
-      }),
-    });
-
-    const json = await res.json();
-    if (!res.ok) {
-      const msg = json?.error?.message || "Error de Gemini";
-      return NextResponse.json({ error: msg }, { status: 500 });
-    }
-
-    let text: string =
-      json?.candidates?.[0]?.content?.parts?.[0]?.text || "{}";
+    let text = (result.text || "{}").trim();
     text = text
-      .trim()
       .replace(/^```(?:json)?/i, "")
       .replace(/```$/, "")
       .trim();
@@ -110,11 +98,10 @@ Analiza la foto de la figura y responde en espanol.
     if (start !== -1 && end !== -1) text = text.slice(start, end + 1);
     const parsed = JSON.parse(text);
     return NextResponse.json(parsed);
-  } catch (e: any) {
-    console.error("identify error", e);
+  } catch {
     return NextResponse.json(
-      { error: e?.message || "Error al identificar la figura" },
-      { status: 500 }
+      { error: "La IA respondio en un formato inesperado. Intenta de nuevo." },
+      { status: 502 }
     );
   }
 }
