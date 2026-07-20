@@ -323,6 +323,169 @@ textarea:focus {
   color: var(--rose);
 }
 
+/* Cuadros "humanos" con icono */
+.stat-h {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 15px 16px;
+  box-shadow: var(--shadow);
+}
+.stat-ico {
+  width: 44px;
+  height: 44px;
+  border-radius: 13px;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  flex: 0 0 auto;
+}
+.stat-body {
+  min-width: 0;
+}
+.stat-body .label {
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+.stat-body .value {
+  font-family: var(--serif);
+  font-size: 23px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-top: 2px;
+  line-height: 1.1;
+}
+
+/* Fila de graficos (2 columnas -> 1 en movil) */
+.chart-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 16px;
+}
+@media (max-width: 700px) {
+  .chart-row {
+    grid-template-columns: 1fr;
+  }
+}
+.card-title {
+  font-family: var(--serif);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+.chart-flex {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+/* Dona */
+.donut {
+  position: relative;
+  flex: 0 0 auto;
+}
+.donut-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.donut-value {
+  font-family: var(--serif);
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1;
+}
+.donut-unit {
+  font-size: 12px;
+  color: var(--muted);
+  font-family: var(--sans);
+}
+.donut-label {
+  font-size: 11px;
+  color: var(--muted);
+  margin-top: 4px;
+  letter-spacing: 0.3px;
+  max-width: 110px;
+  text-align: center;
+}
+
+/* Leyenda */
+.legend {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  flex: 1;
+  min-width: 150px;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 13px;
+}
+.legend-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex: 0 0 auto;
+}
+.legend-label {
+  color: var(--ink-soft);
+  flex: 1;
+}
+.legend-val {
+  font-weight: 700;
+  color: var(--ink);
+  font-family: var(--serif);
+}
+
+/* Barra apilada */
+.sbar {
+  display: flex;
+  gap: 3px;
+  height: 26px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--line-soft);
+}
+.sbar-seg {
+  height: 100%;
+  min-width: 3px;
+  transition: flex-grow 0.3s;
+}
+.big-num {
+  font-family: var(--serif);
+  font-size: 27px;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 14px;
+}
+.big-sub {
+  font-family: var(--sans);
+  font-size: 12px;
+  color: var(--muted);
+  font-weight: 400;
+}
+.margin-note {
+  margin-top: 12px;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+
 /* ---------- Figure cards ---------- */
 .fig-grid {
   display: grid;
@@ -536,9 +699,13 @@ th {
   overflow: hidden;
 }
 .bar-fill {
+  display: block;
   height: 100%;
   background: var(--vermilion);
   border-radius: 999px;
+}
+.bar-track {
+  position: relative;
 }
 .bar-row .val {
   width: 34px;

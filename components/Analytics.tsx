@@ -2,8 +2,9 @@
 
 import React, { useMemo, useState } from "react";
 import { useStore } from "@/lib/store";
-import { CATEGORIES } from "@/lib/constants";
+import { CATEGORIES, CATEGORY_COLORS } from "@/lib/constants";
 import { formatMoney } from "@/lib/pricing";
+import { Donut, Legend, BarList, Segment } from "./Charts";
 
 interface Ranked {
   name: string;
@@ -20,7 +21,6 @@ export default function Analytics() {
   const data = useMemo(() => {
     const soldOrders = store.orders.filter((o) => o.status !== "cancelado");
 
-    // Ranking por producto
     const byProduct: Record<string, Ranked> = {};
     for (const o of soldOrders) {
       const key = o.figureName.toLowerCase();
@@ -30,7 +30,6 @@ export default function Analytics() {
     }
     const ranked = Object.values(byProduct).sort((a, b) => b.units - a.units);
 
-    // Categoria: relacionar pedido con figura para saber waifu/husbando
     const figById = new Map(store.figures.map((f) => [f.id, f]));
     const catUnits: Record<string, number> = { waifu: 0, husbando: 0, otro: 0 };
     for (const o of soldOrders) {
@@ -39,7 +38,6 @@ export default function Analytics() {
       catUnits[cat] += o.quantity;
     }
 
-    // Inventario por categoria/anime/marca
     const invByAnime: Record<string, number> = {};
     const invByBrand: Record<string, number> = {};
     for (const f of store.figures) {
@@ -47,11 +45,25 @@ export default function Analytics() {
       invByBrand[f.brand] = (invByBrand[f.brand] || 0) + f.quantity;
     }
 
-    return { ranked, catUnits, invByAnime, invByBrand, soldOrders };
+    const topAnime = Object.entries(invByAnime)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+    const topBrand = Object.entries(invByBrand)
+      .map(([label, value]) => ({ label, value }))
+      .sort((a, b) => b.value - a.value)
+      .slice(0, 6);
+
+    return { ranked, catUnits, invByAnime, invByBrand, topAnime, topBrand, soldOrders };
   }, [store.orders, store.figures]);
 
-  const maxUnits = Math.max(1, ...data.ranked.map((r) => r.units));
-  const totalCat = data.catUnits.waifu + data.catUnits.husbando + data.catUnits.otro;
+  const catData: Segment[] = CATEGORIES.map((c) => ({
+    label: c.label.split(" ")[0],
+    value: data.catUnits[c.key] || 0,
+    color: CATEGORY_COLORS[c.key],
+  }));
+  const hasSales = data.ranked.length > 0;
+  const hasCatSales = catData.some((d) => d.value > 0);
 
   async function runAI() {
     setLoading(true);
@@ -84,88 +96,72 @@ export default function Analytics() {
 
   return (
     <div>
-      <div className="section-title">Mas vendidas</div>
-      {data.ranked.length === 0 ? (
-        <div className="empty">
-          Registra pedidos en la pestana <b>Clientes</b> para ver que se vende
-          mas.
-        </div>
-      ) : (
-        <div className="card">
-          <div className="bars">
-            {data.ranked.slice(0, 8).map((r) => (
-              <div className="bar-row" key={r.name}>
-                <span className="lbl">{r.name}</span>
-                <span className="bar-track">
-                  <span
-                    className="bar-fill"
-                    style={{ width: `${(r.units / maxUnits) * 100}%` }}
-                  />
-                </span>
-                <span className="val">{r.units}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {data.ranked.length > 3 && (
+      {hasSales ? (
         <>
-          <div className="section-title">Menos vendidas</div>
+          <div className="section-title">Mas vendidas</div>
           <div className="card">
-            <div className="bars">
-              {data.ranked
-                .slice(-4)
-                .reverse()
-                .map((r) => (
-                  <div className="bar-row" key={r.name}>
-                    <span className="lbl">{r.name}</span>
-                    <span className="bar-track">
-                      <span
-                        className="bar-fill"
-                        style={{
-                          width: `${(r.units / maxUnits) * 100}%`,
-                          background: "linear-gradient(90deg,#555,#888)",
-                        }}
-                      />
-                    </span>
-                    <span className="val">{r.units}</span>
-                  </div>
-                ))}
-            </div>
+            <BarList items={data.ranked.slice(0, 8).map((r) => ({ label: r.name, value: r.units }))} />
           </div>
+
+          {data.ranked.length > 3 && (
+            <>
+              <div className="section-title">Menos vendidas</div>
+              <div className="card">
+                <BarList
+                  items={data.ranked
+                    .slice(-4)
+                    .reverse()
+                    .map((r) => ({ label: r.name, value: r.units }))}
+                  color="#b3a894"
+                />
+              </div>
+            </>
+          )}
         </>
+      ) : (
+        <div className="empty">
+          Registra pedidos en la pestana <b>Clientes</b> para ver que se vende mas.
+        </div>
       )}
 
       <div className="section-title">Ventas por categoria</div>
-      <div className="stats">
-        {CATEGORIES.map((c) => {
-          const u = data.catUnits[c.key];
-          const pct = totalCat > 0 ? Math.round((u / totalCat) * 100) : 0;
-          return (
-            <div className="stat" key={c.key}>
-              <div className="label">{c.label}</div>
-              <div
-                className={
-                  "value " +
-                  (c.key === "waifu" ? "pink" : c.key === "husbando" ? "" : "amber")
-                }
-              >
-                {u}
-              </div>
-              <div className="muted" style={{ fontSize: 12 }}>
-                {pct}% de las ventas
-              </div>
-            </div>
-          );
-        })}
+      <div className="card">
+        {hasCatSales ? (
+          <div className="chart-flex">
+            <Donut data={catData} centerUnit=" u." />
+            <Legend data={catData} />
+          </div>
+        ) : (
+          <div className="empty" style={{ padding: 24 }}>
+            Aun no hay ventas registradas por categoria.
+          </div>
+        )}
+      </div>
+
+      <div className="chart-row">
+        <div className="card">
+          <div className="card-title">Inventario por anime</div>
+          {data.topAnime.length ? (
+            <BarList items={data.topAnime} color="var(--indigo)" />
+          ) : (
+            <div className="empty" style={{ padding: 20 }}>Sin figuras.</div>
+          )}
+        </div>
+        <div className="card">
+          <div className="card-title">Inventario por marca</div>
+          {data.topBrand.length ? (
+            <BarList items={data.topBrand} color="var(--gold)" />
+          ) : (
+            <div className="empty" style={{ padding: 20 }}>Sin figuras.</div>
+          )}
+        </div>
       </div>
 
       <div className="section-title">Recomendacion con IA</div>
       <div className="card">
         <p className="muted" style={{ marginTop: 0 }}>
-          La IA analiza tus ventas e inventario y te dice que traer mas, que
-          evitar, y si vendes mas waifus o husbandos.
+          La IA analiza tus ventas e inventario y te dice que traer mas, que evitar, y si
+          vendes mas waifus o husbandos.
         </p>
         <button className="btn primary" onClick={runAI} disabled={loading}>
           {loading ? (
@@ -177,10 +173,7 @@ export default function Analytics() {
           )}
         </button>
         {error && (
-          <div
-            className="note"
-            style={{ borderColor: "var(--red)", color: "var(--red)", marginTop: 12 }}
-          >
+          <div className="note" style={{ marginTop: 12 }}>
             {error}
           </div>
         )}

@@ -49,6 +49,19 @@ export const CATEGORIES: { key: "waifu" | "husbando" | "otro"; label: string }[]
   { key: "otro", label: "Otro / mecha / criatura" },
 ];
 
+// Colores validados (daltonismo + contraste) para los graficos de categoria.
+export const CATEGORY_COLORS: Record<string, string> = {
+  waifu: "#c04a6e",
+  husbando: "#4a5fc4",
+  otro: "#b5822f",
+};
+
+// Colores validados para composicion de dinero.
+export const MONEY_COLORS = {
+  cost: "#b5822f",
+  profit: "#1f8f7a",
+};
+
 // Departamentos de El Salvador
 export const DEPARTMENTS = [
   "Ahuachapan",
