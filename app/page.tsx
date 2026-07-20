@@ -24,10 +24,11 @@ export default function Home() {
     <div className="app">
       <header className="top">
         <div className="brand">
-          <span className="logo">🛍️</span>
-          <div>
-            Anime Store
-            <small>Inventario · El Salvador</small>
+          <span className="seal">ア</span>
+          <div className="brand-text">
+            <span className="kicker">フィギュア コレクション</span>
+            <span className="wordmark">Anime Store</span>
+            <span className="sub">Inventario · El Salvador</span>
           </div>
         </div>
         <nav className="tabs">
@@ -37,7 +38,7 @@ export default function Home() {
               className={"tab" + (tab === t.key ? " active" : "")}
               onClick={() => setTab(t.key)}
             >
-              {t.icon} {t.label}
+              {t.label}
             </button>
           ))}
         </nav>
