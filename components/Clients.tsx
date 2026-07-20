@@ -383,7 +383,6 @@ export default function Clients() {
                     className="btn sm danger"
                     onClick={() => {
                       if (confirm("Eliminar cliente y sus pedidos?")) {
-                        orders.forEach((o) => store.deleteOrder(o.id));
                         store.deleteClient(c.id);
                       }
                     }}

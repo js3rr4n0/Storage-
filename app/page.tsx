@@ -18,7 +18,7 @@ const TABS: { key: Tab; label: string; icon: string }[] = [
 
 export default function Home() {
   const [tab, setTab] = useState<Tab>("dashboard");
-  const { loaded } = useStore();
+  const { loaded, error } = useStore();
 
   return (
     <div className="app">
@@ -44,6 +44,18 @@ export default function Home() {
       </header>
 
       <main>
+        {error && (
+          <div
+            className="note"
+            style={{
+              borderColor: "var(--red)",
+              color: "var(--red)",
+              marginBottom: 12,
+            }}
+          >
+            ⚠️ {error}
+          </div>
+        )}
         {!loaded ? (
           <div className="empty">
             <span className="spinner" /> Cargando...
