@@ -1,24 +1,86 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { useStore } from "@/lib/store";
-import { Figure } from "@/lib/types";
-import { CATEGORIES, SIZES } from "@/lib/constants";
-import { formatMoney } from "@/lib/pricing";
+import { Figure, Category, IdentifyResult } from "@/lib/types";
+import { CATEGORIES, SIZES, BRANDS, BASE_COST } from "@/lib/constants";
+import { formatMoney, suggestPrice } from "@/lib/pricing";
 import { toCSV, downloadCSV } from "@/lib/csv";
-import FigureForm from "./FigureForm";
+import { fileToResizedDataURL, splitDataURL } from "@/lib/image";
+import FigureForm, { FigureDraft } from "./FigureForm";
 
 type SortKey = "name" | "anime" | "brand" | "recent";
 
 const sizeLabel = (k: string) => SIZES.find((s) => s.key === k)?.label || k;
 const catLabel = (k: string) => CATEGORIES.find((c) => c.key === k)?.label || k;
 
+const norm = (s: string) =>
+  (s || "")
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .replace(/[^a-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const tokens = (s: string) => norm(s).split(" ").filter((t) => t.length > 2);
+
+// Puntua que tan parecida es una figura del inventario a lo identificado por la IA.
+function scoreMatch(r: IdentifyResult, f: Figure): number {
+  let score = 0;
+  const rc = norm(r.character);
+  const fc = norm(f.character);
+  if (rc && fc && (fc.includes(rc) || rc.includes(fc))) score += 3;
+  const ra = norm(r.anime);
+  const fa = norm(f.anime);
+  if (ra && fa && (fa.includes(ra) || ra.includes(fa))) score += 2;
+  const rset = new Set(tokens(`${r.name} ${r.character}`));
+  const overlap = tokens(`${f.name} ${f.character}`).filter((t) => rset.has(t)).length;
+  score += Math.min(2, overlap);
+  if (norm(r.brand) && norm(r.brand) === norm(f.brand)) score += 0.5;
+  return score;
+}
+
+function resultToDraft(r: IdentifyResult, image: string): FigureDraft {
+  const brand = BRANDS.includes(r.brand) ? r.brand : BRANDS[BRANDS.length - 1];
+  const size = SIZES.some((s) => s.key === r.size) ? r.size : "prize";
+  const category: Category = (["waifu", "husbando", "otro"].includes(r.category)
+    ? r.category
+    : "waifu") as Category;
+  return {
+    name: r.name || "",
+    character: r.character || "",
+    anime: r.anime || "",
+    brand,
+    series: r.series || "",
+    size,
+    category,
+    cost: BASE_COST,
+    price: suggestPrice(brand, size, BASE_COST),
+    quantity: 1,
+    image,
+    notes: r.notes ? `IA (${Math.round((r.confidence || 0) * 100)}%): ${r.notes}` : "",
+  };
+}
+
+interface ImgSearch {
+  result: IdentifyResult;
+  image: string;
+  matches: Figure[];
+}
+
 export default function Inventory() {
   const store = useStore();
   const [query, setQuery] = useState("");
   const [sort, setSort] = useState<SortKey>("name");
   const [editing, setEditing] = useState<Figure | null>(null);
+  const [prefill, setPrefill] = useState<FigureDraft | null>(null);
   const [showForm, setShowForm] = useState(false);
+
+  const [searching, setSearching] = useState(false);
+  const [imgSearch, setImgSearch] = useState<ImgSearch | null>(null);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const searchFileRef = useRef<HTMLInputElement>(null);
 
   const figures = useMemo(() => {
     let list = [...store.figures];
@@ -45,6 +107,37 @@ export default function Inventory() {
     });
     return list;
   }, [store.figures, query, sort]);
+
+  async function handleSearchFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSearchError(null);
+    setSearching(true);
+    setImgSearch(null);
+    try {
+      const dataURL = await fileToResizedDataURL(file, 640, 0.75);
+      const { mediaType, data } = splitDataURL(dataURL);
+      const res = await fetch("/api/identify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ image: data, mediaType }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Error al identificar");
+      const r = json as IdentifyResult;
+      const matches = store.figures
+        .map((f) => ({ f, s: scoreMatch(r, f) }))
+        .filter((x) => x.s >= 3)
+        .sort((a, b) => b.s - a.s)
+        .map((x) => x.f);
+      setImgSearch({ result: r, image: dataURL, matches });
+    } catch (err: any) {
+      setSearchError(err?.message || "No se pudo identificar la foto");
+    } finally {
+      setSearching(false);
+      if (searchFileRef.current) searchFileRef.current.value = "";
+    }
+  }
 
   function exportCSV() {
     const headers = [
@@ -74,27 +167,108 @@ export default function Inventory() {
     downloadCSV("inventario.csv", toCSV(headers, rows));
   }
 
+  const shownFigures = imgSearch ? imgSearch.matches : figures;
+
   return (
     <div>
       <div className="row spread" style={{ marginBottom: 12 }}>
-        <div className="row" style={{ flex: 1, minWidth: 220 }}>
+        <div className="row" style={{ flex: 1, minWidth: 200 }}>
           <input
             placeholder="Buscar figura, personaje, anime..."
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             style={{ flex: 1 }}
+            disabled={!!imgSearch}
           />
         </div>
+        <button
+          className="btn"
+          onClick={() => searchFileRef.current?.click()}
+          disabled={searching}
+          title="Toma una foto y busca si ya la tienes"
+        >
+          {searching ? (
+            <>
+              <span className="spinner" /> Buscando...
+            </>
+          ) : (
+            <>🔍📷 Buscar por foto</>
+          )}
+        </button>
+        <input
+          ref={searchFileRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          className="hidden-file"
+          onChange={handleSearchFile}
+        />
         <button
           className="btn primary"
           onClick={() => {
             setEditing(null);
+            setPrefill(null);
             setShowForm(true);
           }}
         >
           + Agregar
         </button>
       </div>
+
+      {searchError && (
+        <div className="note" style={{ marginBottom: 12 }}>
+          {searchError}
+        </div>
+      )}
+
+      {imgSearch && (
+        <div className="card imgsearch" style={{ marginBottom: 14 }}>
+          <div className="row" style={{ alignItems: "flex-start", gap: 14 }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="imgsearch-thumb" src={imgSearch.image} alt="busqueda" />
+            <div style={{ flex: 1, minWidth: 180 }}>
+              <div className="muted" style={{ fontSize: 12 }}>
+                La IA identifico
+              </div>
+              <div style={{ fontFamily: "var(--serif)", fontSize: 18, fontWeight: 600 }}>
+                {imgSearch.result.character || imgSearch.result.name || "Figura"}
+              </div>
+              <div className="muted" style={{ fontSize: 13 }}>
+                {imgSearch.result.anime} · {imgSearch.result.brand}
+              </div>
+              {imgSearch.matches.length > 0 ? (
+                <div
+                  style={{ marginTop: 8, color: "var(--matcha)", fontWeight: 700 }}
+                >
+                  ✅ Ya la tienes — {imgSearch.matches.length} coincidencia
+                  {imgSearch.matches.length > 1 ? "s" : ""}
+                </div>
+              ) : (
+                <div style={{ marginTop: 8, color: "var(--vermilion-deep)", fontWeight: 700 }}>
+                  ❌ No esta en tu inventario todavia
+                </div>
+              )}
+            </div>
+          </div>
+          <div className="row" style={{ marginTop: 12 }}>
+            {imgSearch.matches.length === 0 && (
+              <button
+                className="btn primary sm"
+                onClick={() => {
+                  setPrefill(resultToDraft(imgSearch.result, imgSearch.image));
+                  setEditing(null);
+                  setShowForm(true);
+                }}
+              >
+                + Agregar esta figura
+              </button>
+            )}
+            <button className="btn sm" onClick={() => setImgSearch(null)}>
+              Limpiar busqueda
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="row" style={{ marginBottom: 14 }}>
         <span className="muted" style={{ fontSize: 13 }}>
@@ -112,6 +286,7 @@ export default function Inventory() {
             key={k}
             className={"btn sm" + (sort === k ? " primary" : "")}
             onClick={() => setSort(k)}
+            disabled={!!imgSearch}
           >
             {label}
           </button>
@@ -121,14 +296,17 @@ export default function Inventory() {
         </button>
       </div>
 
-      {figures.length === 0 ? (
+      {shownFigures.length === 0 ? (
         <div className="empty">
-          No hay figuras todavia. Toca <b>+ Agregar</b> y tomale una foto a tu
-          primera figura 🎎
+          {imgSearch
+            ? "Ninguna figura del inventario coincide con esa foto."
+            : store.figures.length === 0
+            ? "No hay figuras todavia. Toca + Agregar y tomale una foto a tu primera figura 🎎"
+            : "No se encontraron figuras con esa busqueda."}
         </div>
       ) : (
         <div className="fig-grid">
-          {figures.map((f) => (
+          {shownFigures.map((f) => (
             <div className="fig" key={f.id}>
               {f.image ? (
                 // eslint-disable-next-line @next/next/no-img-element
@@ -160,6 +338,7 @@ export default function Inventory() {
                     className="btn sm"
                     onClick={() => {
                       setEditing(f);
+                      setPrefill(null);
                       setShowForm(true);
                     }}
                   >
@@ -183,11 +362,14 @@ export default function Inventory() {
       {showForm && (
         <FigureForm
           initial={editing || undefined}
+          prefill={prefill || undefined}
           onClose={() => setShowForm(false)}
           onSave={(draft) => {
             if (editing) store.updateFigure(editing.id, draft);
             else store.addFigure(draft);
             setShowForm(false);
+            setPrefill(null);
+            setImgSearch(null);
           }}
         />
       )}

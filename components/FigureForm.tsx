@@ -6,7 +6,7 @@ import { BRANDS, SIZES, CATEGORIES, BASE_COST } from "@/lib/constants";
 import { suggestPrice } from "@/lib/pricing";
 import { fileToResizedDataURL, splitDataURL } from "@/lib/image";
 
-type FigureDraft = Omit<Figure, "id" | "createdAt">;
+export type FigureDraft = Omit<Figure, "id" | "createdAt">;
 
 function blank(): FigureDraft {
   return {
@@ -27,17 +27,17 @@ function blank(): FigureDraft {
 
 export default function FigureForm({
   initial,
+  prefill,
   onSave,
   onClose,
 }: {
   initial?: Figure;
+  prefill?: FigureDraft;
   onSave: (draft: FigureDraft) => void;
   onClose: () => void;
 }) {
   const [draft, setDraft] = useState<FigureDraft>(
-    initial
-      ? { ...initial }
-      : blank()
+    initial ? { ...initial } : prefill ? { ...prefill } : blank()
   );
   const [identifying, setIdentifying] = useState(false);
   const [error, setError] = useState<string | null>(null);

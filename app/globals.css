@@ -673,6 +673,17 @@ th {
 .hidden-file {
   display: none;
 }
+.imgsearch {
+  border-left: 3px solid var(--vermilion);
+}
+.imgsearch-thumb {
+  width: 76px;
+  height: 76px;
+  border-radius: 12px;
+  object-fit: cover;
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+}
 .bars {
   display: flex;
   flex-direction: column;
