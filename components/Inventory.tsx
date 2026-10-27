@@ -6,6 +6,8 @@ import { Figure, Category, IdentifyResult } from "@/lib/types";
 import { CATEGORIES, SIZES, BRANDS, BASE_COST } from "@/lib/constants";
 import { formatMoney, suggestPrice } from "@/lib/pricing";
 import { toCSV, downloadCSV } from "@/lib/csv";
+import { downloadXlsx } from "@/lib/xlsx";
+import { MARKETPLACE_HEADERS, marketplaceRows } from "@/lib/marketplace";
 import { fileToResizedDataURL, splitDataURL } from "@/lib/image";
 import FigureForm, { FigureDraft } from "./FigureForm";
 
@@ -167,6 +169,24 @@ export default function Inventory() {
     downloadCSV("inventario.csv", toCSV(headers, rows));
   }
 
+  function exportMarketplace(format: "xlsx" | "csv") {
+    const rows = marketplaceRows(store.figures);
+    if (rows.length === 0) {
+      alert("No hay figuras con stock y precio para exportar.");
+      return;
+    }
+    if (format === "xlsx") {
+      downloadXlsx("importar-productos.xlsx", [
+        { name: "Productos", rows: [MARKETPLACE_HEADERS, ...rows] },
+      ]);
+    } else {
+      const csvRows = rows.map((r) =>
+        r.map((v, i) => (i === 4 && typeof v === "number" ? v.toFixed(2) : v))
+      );
+      downloadCSV("importar-productos.csv", toCSV(MARKETPLACE_HEADERS, csvRows));
+    }
+  }
+
   const shownFigures = imgSearch ? imgSearch.matches : figures;
 
   return (
@@ -293,6 +313,20 @@ export default function Inventory() {
         ))}
         <button className="btn sm ghost" onClick={exportCSV} style={{ marginLeft: "auto" }}>
           ⬇ CSV
+        </button>
+        <button
+          className="btn sm ghost"
+          onClick={() => exportMarketplace("xlsx")}
+          title="Plantilla «Importar productos» (hoja Productos) — solo figuras con stock"
+        >
+          ⬇ Importar productos (.xlsx)
+        </button>
+        <button
+          className="btn sm ghost"
+          onClick={() => exportMarketplace("csv")}
+          title="Mismo formato que la plantilla, en CSV"
+        >
+          ⬇ Importar productos (.csv)
         </button>
       </div>
 
