@@ -1,6 +1,8 @@
 // Configuracion de negocio (El Salvador usa USD)
 export const BASE_COST = 12; // precio de costo por figura
 export const MIN_PRICE = 25; // precio de venta minimo
+// Precios rapidos en el formulario (botones). Igual se puede escribir otro.
+export const PRICE_PRESETS = [25, 30, 35, 40, 45, 50];
 
 // Multiplicadores de marca segun posicionamiento en el mercado de figuras de El Salvador.
 // Puedes ajustarlos aqui cuando quieras.

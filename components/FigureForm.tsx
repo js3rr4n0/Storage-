@@ -2,7 +2,7 @@
 
 import React, { useRef, useState } from "react";
 import { Figure, Category, IdentifyResult } from "@/lib/types";
-import { BRANDS, SIZES, CATEGORIES, BASE_COST } from "@/lib/constants";
+import { BRANDS, SIZES, CATEGORIES, BASE_COST, PRICE_PRESETS } from "@/lib/constants";
 import { suggestPrice } from "@/lib/pricing";
 import { fileToResizedDataURL, splitDataURL } from "@/lib/image";
 
@@ -318,6 +318,21 @@ export default function FigureForm({
               <button type="button" className="btn sm" onClick={recalcPrice}>
                 ⟳ Auto
               </button>
+            </div>
+            <div className="row" style={{ marginTop: 8, flexWrap: "wrap", gap: 6 }}>
+              {PRICE_PRESETS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  className={"btn sm" + (draft.price === p ? " primary" : "")}
+                  onClick={() => {
+                    setAutoPrice(false);
+                    setDraft((d) => ({ ...d, price: p }));
+                  }}
+                >
+                  ${p}
+                </button>
+              ))}
             </div>
           </div>
           <div style={{ marginBottom: 14 }}>
