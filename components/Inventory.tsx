@@ -317,7 +317,7 @@ export default function Inventory() {
         <button
           className="btn sm ghost"
           onClick={() => exportMarketplace("xlsx")}
-          title="Plantilla «Importar productos» (hoja Productos) — solo figuras con stock"
+          title="Plantilla de Urbby — precios con comisión 5% + IVA incluidos, solo figuras con stock"
         >
           ⬇ Importar productos (.xlsx)
         </button>

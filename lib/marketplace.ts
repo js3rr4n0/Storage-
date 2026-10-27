@@ -19,6 +19,27 @@ export const MARKETPLACE_HEADERS = [
 // Categoría del marketplace donde van las figuras (debe ser una de su lista).
 export const MARKETPLACE_CATEGORY = "Juguetes y Juegos";
 
+// Urbby cobra 5% de comisión + 13% de IVA sobre esa comisión (5.65% del precio).
+// El precio publicado se sube para que, después del descuento, te quede
+// al menos tu precio de venta de la app.
+export const URBBY_COMMISSION = 0.05;
+export const URBBY_IVA = 0.13;
+const URBBY_FEE = URBBY_COMMISSION * (1 + URBBY_IVA); // 0.0565
+
+/** Lo que Urbby te deposita por una venta a `listed`. */
+export function urbbyNet(listed: number): number {
+  const commission = Math.round(listed * URBBY_COMMISSION * 100) / 100;
+  const iva = Math.round(commission * URBBY_IVA * 100) / 100;
+  return Math.round((listed - commission - iva) * 100) / 100;
+}
+
+/** Precio a publicar en Urbby: cubre la comisión y se redondea al dólar entero de arriba. */
+export function urbbyPrice(target: number): number {
+  let listed = Math.ceil(target / (1 - URBBY_FEE));
+  while (urbbyNet(listed) < target) listed += 1;
+  return listed;
+}
+
 const TITLE_MIN = 8;
 const TITLE_MAX = 120;
 const DESC_MIN = 20;
@@ -79,7 +100,7 @@ export function marketplaceRows(figures: Figure[]): (string | number)[][] {
       buildDescription(f),
       MARKETPLACE_CATEGORY,
       brandFor(f),
-      Number(Number(f.price).toFixed(2)),
+      urbbyPrice(Number(f.price)),
       "",
       Math.floor(Number(f.quantity)),
       skuFor(f),
